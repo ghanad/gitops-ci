@@ -1,93 +1,131 @@
-# Gitops CI
+# gitops-ci
+مخزن مرکزی CI برای ریپوهای GitOps (Infra و Tenantها) در معماری Multi-Repo / Multi-Tenant بر پایه App-of-Apps.
 
+این مخزن برای جلوگیری از **کپی‌کاری CI** در Repoهای متعدد و جلوگیری از **Drift** بین pipelineها ساخته شده است.  
+تمام Repoهای GitOps (Repo B: infra و Repo C: tenant/projectها) فقط با `include` کردن template این مخزن، Gateهای استاندارد را اجرا می‌کنند.
 
+---
 
-## Getting started
+## هدف
+- استانداردسازی و یکپارچه‌سازی GitLab CI برای GitOps
+- ایجاد Gate قبل از Merge/Sync:
+  - sanity-check روی `application.yml`
+  - render کردن Helm Wrapper و Raw Manifests
+  - schema validation (kubeconform با schemaهای لوکال برای airgap)
+  - policy validation (Kyverno) به صورت CI-only
+- مقیاس‌پذیری برای N tenant بدون تغییر بنیادین در معماری
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## این مخزن چه چیزی را ارائه می‌دهد؟
+### 1) CI Templates
+- فایل‌های template که Repoهای مصرف‌کننده فقط آن‌ها را `include` می‌کنند.
+- هدف: یکسان بودن Jobها، مراحل، و قراردادها در تمام repoها.
 
-## Add your files
+### 2) اسکریپت‌های CI
+- اسکریپت‌های مشترک که مراحل مختلف pipeline را اجرا می‌کنند:
+  - کشف تغییرات (partial/full/skip)
+  - render خروجی نهایی به `rendered/`
+  - اعتبارسنجی schema و policy
+  - تولید artifact و گزارش‌های JUnit برای دیباگ
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+### 3) Policyهای Kyverno (Baseline)
+- policyهای baseline مشترک که معمولاً برای همه repoها اجرا می‌شوند.
+- Repoهای tenant می‌توانند policyهای اختصاصی خودشان را هم اضافه کنند (اختیاری).
 
-```
-cd existing_repo
-git remote add origin https://gitlab-baloot.mahsan.net/choopan/gitops-ci.git
-git branch -M main
-git push -uf origin main
-```
+---
 
-## Integrate with your tools
+## قراردادهای معماری GitOps (خلاصه)
+این CI مطابق این قراردادها طراحی شده است:
+- معماری Multi-Repo و Multi-Tenant بر پایه App-of-Apps
+- Root Application در Repo A فقط **Application** می‌سازد (include=**/application.yml) و **منابع واقعی را sync نمی‌کند**
+- هر component self-contained است:
+  - Helm Wrapper:
+    - `application.yml` با `spec.source.path: '.'`
+    - `Chart.yaml`, `values.yaml`
+  - Raw Manifests:
+    - `application.yml` با `spec.source.path: './manifests'`
+    - فولدر `manifests/`
+- جلوگیری از Double Ownership: منابع واقعی فقط توسط child appها مدیریت می‌شوند.
 
-- [ ] [Set up project integrations](https://gitlab-baloot.mahsan.net/choopan/gitops-ci/-/settings/integrations)
+---
 
-## Collaborate with your team
+## ساختار این مخزن
+> ممکن است با رشد پروژه پوشه‌ها گسترش یابد، اما این هسته ثابت می‌ماند.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+- `templates/`
+  - قالب اصلی pipeline (GitLab CI include)
+- `gitlab-ci-scripts/`
+  - اسکریپت‌های اجرایی pipeline
+- `policies/kyverno/`
+  - policyهای baseline (و دسته‌بندی‌های اضافی در صورت نیاز)
 
-## Test and Deploy
+---
 
-Use the built-in continuous integration in GitLab.
+## نحوه استفاده در Repoهای مصرف‌کننده (Repo B و Repo C)
+در `.gitlab-ci.yml` هر repo مصرف‌کننده:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+```yaml
+include:
+  - project: "choopan/gitops-ci"
+    ref: "v1.0.0"
+    file: "/templates/gitops-gate.yml"
 
-***
+variables:
+  # مسیر پروژه gitops-ci برای clone شدن توسط jobها
+  GITOPS_CI_PROJECT: "choopan/gitops-ci"
+  GITOPS_CI_REF: "v1.0.0"
 
-# Editing this README
+  # مسیر کامپوننت‌ها
+  GITOPS_COMPONENTS_DIR: "components"
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+  # انتخاب policy set ها
+  KYVERNO_POLICYSETS: "baseline"
+  # مثال: baseline + tenant
+  # KYVERNO_POLICYSETS: "baseline,tenant"
+````
 
-## Suggestions for a good README
+### انتخاب Kyverno PolicySet
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+* `baseline`:
 
-## Name
-Choose a self-explaining name for your project.
+  * policyهای مشترک از داخل همین مخزن اجرا می‌شوند.
+* `tenant`:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+  * اگر در repo مصرف‌کننده مسیر `policies/kyverno/tenant/` وجود داشته باشد، policyهای آن هم اجرا می‌شود.
+* امکان افزودن setهای دیگر در آینده وجود دارد (مثل `security`, `strict`, ...)
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+---
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## دسترسی GitLab (Job Token Access)
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Jobها برای دسترسی به اسکریپت‌ها و policyهای baseline، این repo را با `CI_JOB_TOKEN` clone می‌کنند.
+بنابراین باید در پروژه `gitops-ci` تنظیمات زیر انجام شده باشد:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+* فعال بودن allowlist برای CI job token
+* اضافه شدن گروه/پروژه‌های GitOps (Repo B و Repo Cها) به allowlist
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+---
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## خروجی‌های pipeline
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+* `rendered/` : خروجی نهایی رندر شده برای هر component
+* `out/` : گزارش‌ها، لاگ‌ها و JUnit ها برای دیباگ
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+---
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## اصول توسعه و تغییرات
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+* تغییرات روی pipeline باید در این repo انجام شود (نه در repoهای مصرف‌کننده).
+* برای rollout کنترل‌شده:
 
-## License
-For open source projects, say how it is licensed.
+  * از tag/release استفاده شود (مثلاً `v1.0.0`, `v1.1.0`)
+  * repoهای مصرف‌کننده با تغییر `ref` به نسخه جدید مهاجرت کنند.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
+
+## نکات مهم
+
+* این CI برای جلوگیری از drift و double ownership طراحی شده است.
+* policyها در CI صرفاً نقش gate دارند و جایگزین enforce واقعی در cluster نیستند.
+* در صورت اضافه شدن policyهای Mutate در Kyverno admission، باید مراقب drift با ArgoCD بود.
