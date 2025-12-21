@@ -1,0 +1,187 @@
+# templates/gitops-gate.yml
+#
+# Central GitOps validation pipeline (for Repo B: gitops-infra and all Repo C tenant repos)
+# - Detect changed components (SKIP/PARTIAL/FULL)
+# - Render (Helm wrappers + raw manifests) -> rendered/
+# - Validate rendered/ with kubeconform (airgap schemas)
+# - Validate rendered/ with kyverno policies (baseline + optional tenant sets)
+#
+# Usage in a consuming repo (.gitlab-ci.yml):
+#   include:
+#     - project: "<group>/<gitops-ci>"
+#       ref: "v1.0.0"
+#       file: "/templates/gitops-gate.yml"
+#   variables:
+#     GITOPS_CI_PROJECT: "<group>/<gitops-ci>"
+#     GITOPS_CI_REF: "v1.0.0"
+#     GITOPS_COMPONENTS_DIR: "components"
+#     KYVERNO_POLICYSETS: "baseline"      # or "baseline,tenant"
+#
+# IMPORTANT:
+# - The consuming repo's CI_JOB_TOKEN must be allowed to read the gitops-ci project.
+
+stages:
+  - sanity
+  - render
+  - validate
+  - policy
+
+variables:
+  KUBERNETES_VERSION: "1.32.1"
+  OUT_DIR: "out"
+  RENDERED_DIR: "rendered"
+
+  HELM_INCLUDE_CRDS: "false"
+  HELM_TIMEOUT: "300"
+
+  KUBECONFORM_SCHEMA_DIR: "/opt/kubeconform/schemas"
+
+  GITOPS_COMPONENTS_DIR: "components"
+  FORCE_FULL_SCAN: "false"
+
+  # Kyverno policy selection (baseline in gitops-ci + optional local sets)
+  KYVERNO_POLICYSETS: "baseline"
+  KYVERNO_STRICT_SETS: "true"
+
+  # Repo fetch (must be set by consuming repo)
+  GITOPS_CI_PROJECT: ""
+  GITOPS_CI_REF: "main"
+
+default:
+  image: jfrog-baloot.mahsan.net/docker/argo-git-validator:v1.32.1
+  cache:
+    key: "${CI_PROJECT_PATH_SLUG}-helm"
+    paths:
+      - .cache/helm
+
+.gitops-ci-setup:
+  before_script:
+    - export HELM_CACHE_HOME="$PWD/.cache/helm/cache"
+    - export HELM_CONFIG_HOME="$PWD/.cache/helm/config"
+    - export HELM_DATA_HOME="$PWD/.cache/helm/data"
+    - mkdir -p "$HELM_CACHE_HOME" "$HELM_CONFIG_HOME" "$HELM_DATA_HOME" "$OUT_DIR" "$RENDERED_DIR"
+    - |
+      if [ -z "${GITOPS_CI_PROJECT}" ]; then
+        echo "ERROR: GITOPS_CI_PROJECT is empty. Set it in the consuming repo variables." >&2
+        exit 1
+      fi
+    - |
+      export GITOPS_CI_DIR="${CI_PROJECT_DIR}/.gitops-ci"
+      rm -rf "$GITOPS_CI_DIR"
+      GITOPS_CI_URL="https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${GITOPS_CI_PROJECT}.git"
+      echo "Fetching gitops-ci from: ${GITOPS_CI_PROJECT}@${GITOPS_CI_REF}" >&2
+      git clone --depth 1 --branch "${GITOPS_CI_REF}" "${GITOPS_CI_URL}" "$GITOPS_CI_DIR"
+      test -f "$GITOPS_CI_DIR/gitlab-ci-scripts/lib.sh"
+      export GITOPS_CI_SCRIPTS="$GITOPS_CI_DIR/gitlab-ci-scripts"
+
+sanity:applications:
+  stage: sanity
+  timeout: 5m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  extends: .gitops-ci-setup
+  script:
+    - bash "$GITOPS_CI_SCRIPTS/sanity_applications.sh"
+  artifacts:
+    when: always
+    paths:
+      - out/
+    expire_in: 7 days
+    reports:
+      junit: out/sanity-junit.xml
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
+
+render:components:
+  stage: render
+  timeout: 30m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  extends: .gitops-ci-setup
+  script:
+    - source "$GITOPS_CI_SCRIPTS/lib.sh"
+    - bash "$GITOPS_CI_SCRIPTS/git_changed_components.sh" > "$OUT_DIR/target_components.txt"
+    - source "$OUT_DIR/scan-mode.env"
+    - |
+      if [ "$SKIP_SCAN" = "true" ]; then
+        log_success "Skipping render - no deployment changes detected"
+        exit 0
+      fi
+    - bash "$GITOPS_CI_SCRIPTS/render_helm.sh"
+  artifacts:
+    when: always
+    paths:
+      - out/
+      - rendered/
+    expire_in: 3 days
+    reports:
+      junit: out/render-junit.xml
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
+
+validate:kubeconform:
+  stage: validate
+  timeout: 15m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  dependencies:
+    - render:components
+  extends: .gitops-ci-setup
+  script:
+    - source "$GITOPS_CI_SCRIPTS/lib.sh"
+    - |
+      if [ -f "$OUT_DIR/scan-mode.env" ]; then
+        source "$OUT_DIR/scan-mode.env"
+        if [ "${SKIP_SCAN:-false}" = "true" ]; then
+          log_success "Skipping kubeconform - no deployment changes detected"
+          exit 0
+        fi
+      fi
+    - bash "$GITOPS_CI_SCRIPTS/validate_kubeconform.sh"
+  artifacts:
+    when: always
+    paths:
+      - out/
+    expire_in: 7 days
+    reports:
+      junit: out/kubeconform-junit.xml
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
+
+policy:kyverno:
+  stage: policy
+  timeout: 15m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  dependencies:
+    - render:components
+  extends: .gitops-ci-setup
+  script:
+    - source "$GITOPS_CI_SCRIPTS/lib.sh"
+    - |
+      if [ -f "$OUT_DIR/scan-mode.env" ]; then
+        source "$OUT_DIR/scan-mode.env"
+        if [ "${SKIP_SCAN:-false}" = "true" ]; then
+          log_success "Skipping kyverno - no deployment changes detected"
+          exit 0
+        fi
+      fi
+    - bash "$GITOPS_CI_SCRIPTS/validate_kyverno.sh"
+  artifacts:
+    when: always
+    paths:
+      - out/
+    expire_in: 7 days
+    reports:
+      dotenv: out/scan-mode.env
+  allow_failure: false
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
