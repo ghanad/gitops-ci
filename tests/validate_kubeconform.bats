@@ -14,20 +14,17 @@ setup() {
   export RENDERED_DIR="$TEST_DIR/rendered"
   export KUBERNETES_VERSION="1.27.0"
   export KUBECONFORM_SCHEMA_DIR="$TEST_DIR/schemas"
+  export PATH="$TEST_DIR/bin:$PATH"
 
   mkdir -p "$OUT_DIR" "$RENDERED_DIR" "$KUBECONFORM_SCHEMA_DIR/v${KUBERNETES_VERSION}-standalone-strict"
+  mkdir -p "$TEST_DIR/bin"
 
-  function check_required_tools() {
-    return 0
-  }
-  export -f check_required_tools
-
-  function kubeconform() {
-    echo "Summary:"
-    echo "  Passed: 1"
-    return 0
-  }
-  export -f kubeconform
+  cat <<'EOF' > "$TEST_DIR/bin/kubeconform"
+#!/usr/bin/env bash
+echo "Summary:"
+echo "  Passed: 1"
+EOF
+  chmod +x "$TEST_DIR/bin/kubeconform"
 }
 
 teardown() {
