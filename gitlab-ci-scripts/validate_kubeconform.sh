@@ -91,7 +91,21 @@ for manifest in "${MANIFEST_FILES[@]}"; do
   else
     # Count resources
     resource_count=$(grep -c "^---" "$manifest" 2>/dev/null || echo "0")
+    if [ "$resource_count" -eq 0 ]; then
+      resource_count=1
+    fi
     log_info "Resources: ~$resource_count"
+
+    # Ensure manifests start with document separator for kubeconform.
+    manifest_for_validation="$manifest"
+    first_non_empty_line=$(awk 'NF { print; exit }' "$manifest")
+    if [ -n "$first_non_empty_line" ] && [[ "$first_non_empty_line" != "---"* ]]; then
+      manifest_for_validation="$(mktemp "${OUT_DIR}/${COMPONENT_NAME}.XXXXXX.yaml")"
+      {
+        echo "---"
+        cat "$manifest"
+      } > "$manifest_for_validation"
+    fi
     
     # Run kubeconform
     VALIDATION_OUTPUT="${OUT_DIR}/${COMPONENT_NAME}.validation.log"
@@ -103,7 +117,7 @@ for manifest in "${MANIFEST_FILES[@]}"; do
       -summary \
       -strict \
       -ignore-missing-schemas \
-      "${manifest}" > "$VALIDATION_OUTPUT" 2>&1; then
+      "${manifest_for_validation}" > "$VALIDATION_OUTPUT" 2>&1; then
       
       # Validation passed
       log_success "Kubeconform validation passed"
@@ -126,6 +140,10 @@ for manifest in "${MANIFEST_FILES[@]}"; do
       cat "$VALIDATION_OUTPUT" | while IFS= read -r line; do
         log_error "  $line"
       done
+    fi
+
+    if [ "$manifest_for_validation" != "$manifest" ]; then
+      rm -f "$manifest_for_validation"
     fi
   fi
   

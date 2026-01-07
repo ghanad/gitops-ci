@@ -57,3 +57,27 @@ YAML
   run grep -c "testcase name=\"app\"" "$OUT_DIR/validate-junit.xml"
   [ "$status" -eq 0 ]
 }
+
+@test "validate_kubeconform: handles manifests without document separator" {
+  cat <<'YAML' > "$RENDERED_DIR/app.yaml"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app
+YAML
+
+  cat <<'YAML' > "$RENDERED_DIR/worker.yaml"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: worker
+YAML
+
+  run bash "$SCRIPT_TO_TEST"
+  [ "$status" -eq 0 ]
+  [ -f "$OUT_DIR/validate-junit.xml" ]
+  run grep -c "testcase name=\"app\"" "$OUT_DIR/validate-junit.xml"
+  [ "$status" -eq 0 ]
+  run grep -c "testcase name=\"worker\"" "$OUT_DIR/validate-junit.xml"
+  [ "$status" -eq 0 ]
+}
