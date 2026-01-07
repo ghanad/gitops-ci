@@ -24,6 +24,11 @@ echo "Summary:"
 echo "  Passed: 1"
 EOF
   chmod +x "$TEST_DIR/bin/kubeconform"
+
+  function check_required_tools() {
+    return 0
+  }
+  export -f check_required_tools
 }
 
 teardown() {
