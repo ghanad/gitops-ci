@@ -59,7 +59,7 @@ if [ ! -d "$RENDERED_DIR" ]; then
   exit 1
 fi
 
-mapfile -d "" MANIFEST_FILES < <(find "${RENDERED_DIR}" -type f -name "*.yaml" -print0 2>/dev/null | sort -z || true)
+mapfile -d "" MANIFEST_FILES < <(find "${RENDERED_DIR}" -type f -name "*.yaml" -print0 2>/dev/null || true)
 
 if [ ${#MANIFEST_FILES[@]} -eq 0 ]; then
   log_info "No rendered manifests found in $RENDERED_DIR"
