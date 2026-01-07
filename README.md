@@ -131,15 +131,18 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 * در صورت اضافه شدن policyهای Mutate در Kyverno admission، باید مراقب drift با ArgoCD بود.
 
 
-## Unittests
-prerequets 
-```
-apt install bats
+## 🧪 Unit Tests
 
-and install qy with this
-https://lindevs.com/install-yq-on-ubuntu
-```
+We use [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core) to validate the CI scripts logic.
 
-to run test use this command 
-```
-bats tests
+### Prerequisites
+
+Ensure you have `bats` and `yq` (v4+) installed.
+
+```bash
+# Install BATS
+sudo apt install -y bats
+
+# Install yq (binary download)
+sudo wget -qO /usr/local/bin/yq [https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64](https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64)
+sudo chmod a+x /usr/local/bin/yq
