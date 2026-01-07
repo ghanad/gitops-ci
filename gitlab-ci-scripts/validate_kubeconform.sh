@@ -90,20 +90,44 @@ for manifest in "${MANIFEST_FILES[@]}"; do
     COMPONENT_STATUS="passed"
   else
     # Count resources
-    resource_count=$(grep -c "^---" "$manifest" 2>/dev/null || echo "0")
+    resource_count=$(awk '
+      /^---/ {count++}
+      /^[[:space:]]*[^#[:space:]]/ {has_content=1}
+      END {
+        if (!has_content) {
+          print 0
+        } else if (count == 0) {
+          print 1
+        } else {
+          print count
+        }
+      }
+    ' "$manifest" 2>/dev/null || echo "0")
     log_info "Resources: ~$resource_count"
     
     # Run kubeconform
     VALIDATION_OUTPUT="${OUT_DIR}/${COMPONENT_NAME}.validation.log"
     
     log_info "Running kubeconform..."
+    first_doc_line=$(awk '
+      /^[[:space:]]*#/ {next}
+      /^[[:space:]]*$/ {next}
+      {print; exit}
+    ' "$manifest")
+    manifest_for_validation="$manifest"
+    if [ "$first_doc_line" != "---" ]; then
+      manifest_for_validation="$(mktemp)"
+      printf '%s\n' "---" > "$manifest_for_validation"
+      cat "$manifest" >> "$manifest_for_validation"
+    fi
+
     if kubeconform \
       "${KUBECONFORM_SCHEMA_LOCATIONS[@]}" \
       -kubernetes-version "${KUBERNETES_VERSION}" \
       -summary \
       -strict \
       -ignore-missing-schemas \
-      "${manifest}" > "$VALIDATION_OUTPUT" 2>&1; then
+      "${manifest_for_validation}" > "$VALIDATION_OUTPUT" 2>&1; then
       
       # Validation passed
       log_success "Kubeconform validation passed"
@@ -126,6 +150,10 @@ for manifest in "${MANIFEST_FILES[@]}"; do
       cat "$VALIDATION_OUTPUT" | while IFS= read -r line; do
         log_error "  $line"
       done
+    fi
+
+    if [ "$manifest_for_validation" != "$manifest" ]; then
+      rm -f "$manifest_for_validation"
     fi
   fi
   
