@@ -32,7 +32,7 @@ teardown() {
 }
 
 @test "validate_kubeconform: exits cleanly when no manifests exist" {
-  run bash "$SCRIPT_TO_TEST"
+  run env PATH="$TEST_DIR/bin:$PATH" bash "$SCRIPT_TO_TEST"
   [ "$status" -eq 0 ]
   [ -f "$OUT_DIR/validate-junit.xml" ]
   run grep -c "tests=\"0\"" "$OUT_DIR/validate-junit.xml"
@@ -48,7 +48,7 @@ metadata:
   name: app
 YAML
 
-  run bash "$SCRIPT_TO_TEST"
+  run env PATH="$TEST_DIR/bin:$PATH" bash "$SCRIPT_TO_TEST"
   [ "$status" -eq 0 ]
   [ -f "$OUT_DIR/validate-junit.xml" ]
   run grep -c "testcase name=\"app\"" "$OUT_DIR/validate-junit.xml"
@@ -70,7 +70,7 @@ metadata:
   name: worker
 YAML
 
-  run bash "$SCRIPT_TO_TEST"
+  run env PATH="$TEST_DIR/bin:$PATH" bash "$SCRIPT_TO_TEST"
   [ "$status" -eq 0 ]
   [ -f "$OUT_DIR/validate-junit.xml" ]
   run grep -c "testcase name=\"app\"" "$OUT_DIR/validate-junit.xml"
