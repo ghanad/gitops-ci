@@ -144,7 +144,7 @@ Ensure you have `bats` and `yq` (v4+) installed.
 sudo apt install -y bats
 
 # Install yq (binary download)
-sudo wget -qO /usr/local/bin/yq [https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64](https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64)
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 sudo chmod a+x /usr/local/bin/yq
 
 # execute 
