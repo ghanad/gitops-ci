@@ -59,7 +59,10 @@ if [ ! -d "$RENDERED_DIR" ]; then
   exit 1
 fi
 
-mapfile -d "" MANIFEST_FILES < <(find "${RENDERED_DIR}" -type f -name "*.yaml" -print0 2>/dev/null || true)
+MANIFEST_FILES=()
+while IFS= read -r -d '' manifest; do
+  MANIFEST_FILES+=("$manifest")
+done < <(find "${RENDERED_DIR}" -type f -name "*.yaml" -print0 2>/dev/null || true)
 
 if [ ${#MANIFEST_FILES[@]} -eq 0 ]; then
   log_info "No rendered manifests found in $RENDERED_DIR"
