@@ -83,13 +83,16 @@ sanity:applications:
   extends: .gitops-ci-setup
   script:
     - bash "$GITOPS_CI_SCRIPTS/sanity_applications.sh"
+    # Added Helm structure check for Umbrella charts (checks aliases/dependencies vs values.yaml)
+    - bash "$GITOPS_CI_SCRIPTS/sanity_helm_structure.sh"
   artifacts:
     when: always
     paths:
       - out/
     expire_in: 7 days
     reports:
-      junit: out/sanity-junit.xml
+      # Wildcard to capture both sanity-junit.xml and sanity-helm-junit.xml
+      junit: out/*.xml
   retry:
     max: 1
     when: [runner_system_failure, stuck_or_timeout_failure]

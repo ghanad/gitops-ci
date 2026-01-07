@@ -129,3 +129,17 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 * این CI برای جلوگیری از drift و double ownership طراحی شده است.
 * policyها در CI صرفاً نقش gate دارند و جایگزین enforce واقعی در cluster نیستند.
 * در صورت اضافه شدن policyهای Mutate در Kyverno admission، باید مراقب drift با ArgoCD بود.
+
+
+## Unittests
+prerequets 
+```
+apt install bats
+
+and install qy with this
+https://lindevs.com/install-yq-on-ubuntu
+```
+
+to run test use this command 
+```
+bats tests
