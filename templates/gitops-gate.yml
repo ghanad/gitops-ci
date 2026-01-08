@@ -83,6 +83,7 @@ sanity:applications:
   extends: .gitops-ci-setup
   script:
     - bash "$GITOPS_CI_SCRIPTS/sanity_applications.sh"
+    - bash "$GITOPS_CI_SCRIPTS/sanity_application_prefix.sh"
     # Added Helm structure check for Umbrella charts (checks aliases/dependencies vs values.yaml)
     - bash "$GITOPS_CI_SCRIPTS/sanity_helm_structure.sh"
   artifacts:
