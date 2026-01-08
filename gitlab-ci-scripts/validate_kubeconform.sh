@@ -89,8 +89,14 @@ for manifest in "${MANIFEST_FILES[@]}"; do
     log_warning "Manifest is empty (may be valid if chart has no resources)"
     COMPONENT_STATUS="passed"
   else
-    # Count resources
-    resource_count=$(grep -c "^---" "$manifest" 2>/dev/null || echo "0")
+    # Count resources - improved method that doesn't require leading ---
+    # Count documents by looking for lines starting with apiVersion or kind
+    # This is more reliable than counting --- separators
+    resource_count=$(grep -c "^apiVersion:" "$manifest" 2>/dev/null || echo "0")
+    if [ "$resource_count" -eq 0 ]; then
+      # Fallback: try counting kind if no apiVersion found
+      resource_count=$(grep -c "^kind:" "$manifest" 2>/dev/null || echo "0")
+    fi
     log_info "Resources: ~$resource_count"
     
     # Run kubeconform
