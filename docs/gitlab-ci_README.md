@@ -515,6 +515,22 @@ my-app
 
 ---
 
+#### ❌ "Application name must start with prefix"
+
+**خطا:**
+
+```
+❌ Invalid Application name 'my-app' (expected prefix: cluster-a-)
+```
+
+**راه‌حل:**
+
+* متغیر `GITOPS_APPLICATION_NAME_PREFIX` را در GitLab CI تنظیم کنید (مثلاً `cluster-a-`)
+* `metadata.name` هر application باید با این prefix شروع شود
+* اگر نمی‌خواهید این قانون اعمال شود، مقدار این متغیر را خالی بگذارید
+
+---
+
 #### ❌ "Invalid characters in metadata.name"
 
 **خطا:**
