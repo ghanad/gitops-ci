@@ -125,14 +125,16 @@ for manifest in "${MANIFEST_FILES[@]}"; do
         VIOLATIONS+=("$msg")
       fi
     done < <(
-      ANNOTATION_KEY="$ANNOTATION_KEY" yq eval-all -N -r '
-        (. | select(.kind == "List") | .items | to_entries[]
-          | select(.value.kind != null and .value.kind != "")
-          | [documentIndex, .key, (.value.apiVersion // ""), (.value.kind // ""), (.value.metadata.name // ""), (.value.metadata.namespace // ""), (.value.metadata.annotations[env(ANNOTATION_KEY)] // "")] | @tsv
-        ),
-        (. | select(.kind != "List" and .kind != null and .kind != "")
-          | [documentIndex, -1, (.apiVersion // ""), (.kind // ""), (.metadata.name // ""), (.metadata.namespace // ""), (.metadata.annotations[env(ANNOTATION_KEY)] // "")] | @tsv
-        )
+      ANNOTATION_KEY="$ANNOTATION_KEY" yq eval -N -r '
+        select(.kind == "List")
+        | .items
+        | to_entries[]
+        | select(.value.kind != null and .value.kind != "")
+        | [documentIndex, .key, (.value.apiVersion // ""), (.value.kind // ""), (.value.metadata.name // ""), (.value.metadata.namespace // ""), (.value.metadata.annotations[env(ANNOTATION_KEY)] // "")] | @tsv
+      ' "$manifest"
+      ANNOTATION_KEY="$ANNOTATION_KEY" yq eval -N -r '
+        select(.kind != "List" and .kind != null and .kind != "")
+        | [documentIndex, -1, (.apiVersion // ""), (.kind // ""), (.metadata.name // ""), (.metadata.namespace // ""), (.metadata.annotations[env(ANNOTATION_KEY)] // "")] | @tsv
       ' "$manifest"
     )
 
