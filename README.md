@@ -134,6 +134,18 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 * policyها در CI صرفاً نقش gate دارند و جایگزین enforce واقعی در cluster نیستند.
 * در صورت اضافه شدن policyهای Mutate در Kyverno admission، باید مراقب drift با ArgoCD بود.
 
+---
+
+## Changelog
+
+### v1.0.1 
+
+* Expanded the BATS unit test coverage for CI scripts, including change-detection, XML escaping, and application prefix validation tests.
+* Added a GitHub Actions workflow to run the BATS test suite.
+* Improved kubeconform validation to handle manifests without YAML separators and to count resources more reliably, plus comprehensive test coverage.
+* Fixed JUnit XML escaping and improved Kyverno violation logging for clearer failure messages.
+* Updated README guidance, including corrected `yq` installation and clearer BATS execution instructions.
+
 
 ## 🧪 Unit Tests
 
