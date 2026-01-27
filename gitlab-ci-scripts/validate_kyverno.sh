@@ -138,6 +138,31 @@ log_info "Collected $TOTAL_POLICIES policy file(s) into $POLICY_TMP_DIR"
 log_info "Running Kyverno policy validation..."
 log_info "Command: kyverno apply $POLICY_TMP_DIR --resource $COMBINED_MANIFESTS --audit-warn --warn-exit-code 1 --policy-report"
 
+print_policy_report_summary() {
+  local report_file="$1"
+
+  if ! yq eval '.results' "$report_file" >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local results_count
+  results_count="$(yq eval '.results | length' "$report_file" 2>/dev/null || echo 0)"
+  if [ "${results_count}" -eq 0 ]; then
+    return 1
+  fi
+
+  log_subsection "Kyverno violation summary (policy-report)"
+  yq eval -r '
+    .results[]
+    | select(.result == "fail" or .result == "warn")
+    | "- policy: \(.policy) | rule: \(.rule) | result: \(.result)"
+      + " | resource: \(.resources[0].kind // "-")/\(.resources[0].namespace // "-")/\(.resources[0].name // "-")"
+      + " | message: \(.message // "-")"
+  ' "$report_file" >&2
+
+  return 0
+}
+
 if kyverno apply "$POLICY_TMP_DIR" \
   --resource "$COMBINED_MANIFESTS" \
   --audit-warn \
@@ -147,7 +172,12 @@ if kyverno apply "$POLICY_TMP_DIR" \
   log_success "All Kyverno policy checks passed!"
 else
   log_error "Kyverno policy violations detected."
+  log_error "Report file saved to: $KYVERNO_REPORT"
   cp "$KYVERNO_OUTPUT" "$KYVERNO_REPORT"
+  if ! print_policy_report_summary "$KYVERNO_REPORT"; then
+    log_warning "Unable to parse policy report output. Showing last 50 lines:"
+    tail -n 50 "$KYVERNO_REPORT" >&2 || true
+  fi
   exit 1
 fi
 
