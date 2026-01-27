@@ -548,14 +548,15 @@ my-app
 **خطا:**
 
 ```
-❌ Invalid Application name 'my-app' (expected prefix: cluster-a-)
+❌ PREFIX_VIOLATION file=components/app1/application.yml name=my-app expected_prefix=cluster-a-
 ```
 
 **راه‌حل:**
 
-* متغیر `GITOPS_APPLICATION_NAME_PREFIX` را در GitLab CI تنظیم کنید (مثلاً `cluster-a-`)
-* `metadata.name` هر application باید با این prefix شروع شود
+* متغیر `APP_NAME_PREFIX` را در GitLab CI تنظیم کنید (مثلاً `cluster-a`)
+* `metadata.name` هر application باید با `${APP_NAME_PREFIX}-` شروع شود
 * اگر نمی‌خواهید این قانون اعمال شود، مقدار این متغیر را خالی بگذارید
+* متغیر قدیمی `GITOPS_APPLICATION_NAME_PREFIX` همچنان پشتیبانی می‌شود
 
 ---
 

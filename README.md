@@ -80,8 +80,10 @@ variables:
   GITOPS_COMPONENTS_DIR: "components"
   # پیشوند اجباری برای metadata.name در application.yml (اختیاری)
   # اگر خالی باشد این بررسی انجام نمی‌شود.
-  # مثال: "cluster-a-"
-  GITOPS_APPLICATION_NAME_PREFIX: ""
+  # مثال: "cluster-a" (در اجرا به شکل "cluster-a-" بررسی می‌شود)
+  APP_NAME_PREFIX: ""
+  # متغیر قدیمی (برای سازگاری)
+  # GITOPS_APPLICATION_NAME_PREFIX: ""
 
   # انتخاب policy set ها
   KYVERNO_POLICYSETS: "baseline"

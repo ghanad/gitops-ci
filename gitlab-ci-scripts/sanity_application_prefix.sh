@@ -7,10 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 COMPONENTS_DIR="${GITOPS_COMPONENTS_DIR:-components}"
-NAME_PREFIX="${GITOPS_APPLICATION_NAME_PREFIX:-}"
+NAME_PREFIX="${APP_NAME_PREFIX:-${GITOPS_APPLICATION_NAME_PREFIX:-}}"
 
 if [ -z "$NAME_PREFIX" ]; then
-  log_section "🔕 Skipping Application Prefix Check (GITOPS_APPLICATION_NAME_PREFIX is not set)"
+  log_section "🔕 Skipping Application Prefix Check (APP_NAME_PREFIX is not set)"
   exit 0
 fi
 
@@ -37,29 +37,35 @@ fi
 
 log_subsection "🧾 Validating metadata.name prefix"
 PREFIX_ERRORS=0
+EXPECTED_PREFIX="${NAME_PREFIX}-"
 
 for f in "${APP_FILES[@]}"; do
-  name="$(get_app_metadata "$f" "metadata.name")"
-  if [ -z "$name" ]; then
-    log_error "Missing metadata.name in: $f"
-    PREFIX_ERRORS=$((PREFIX_ERRORS + 1))
+  mapfile -t app_names < <(yq eval -r 'select(.kind == "Application") | .metadata.name // ""' "$f" 2>/dev/null || true)
+  if [ ${#app_names[@]} -eq 0 ]; then
     continue
   fi
-  if [[ ! "$name" =~ ^${NAME_PREFIX} ]]; then
-    log_error "Invalid Application name '$name' (expected prefix: ${NAME_PREFIX})"
-    log_error "  - $f"
-    PREFIX_ERRORS=$((PREFIX_ERRORS + 1))
-  fi
+
+  for name in "${app_names[@]}"; do
+    if [ -z "$name" ]; then
+      log_error "Missing metadata.name for Application in file: $f"
+      PREFIX_ERRORS=$((PREFIX_ERRORS + 1))
+      continue
+    fi
+    if [[ "$name" != "${EXPECTED_PREFIX}"* ]]; then
+      log_error "PREFIX_VIOLATION file=$f name=$name expected_prefix=$EXPECTED_PREFIX"
+      PREFIX_ERRORS=$((PREFIX_ERRORS + 1))
+    fi
+  done
 done
 
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 if [ "$PREFIX_ERRORS" -gt 0 ]; then
-  add_junit_test "$JUNIT_FILE" "sanity-application-prefix" "failed" "Found $PREFIX_ERRORS Application name(s) without prefix ${NAME_PREFIX}"
+  add_junit_test "$JUNIT_FILE" "sanity-application-prefix" "failed" "Found $PREFIX_ERRORS Application name(s) without prefix ${EXPECTED_PREFIX}"
   TOTAL_FAILURES=$((TOTAL_FAILURES + 1))
   EXIT_CODE=1
 else
   add_junit_test "$JUNIT_FILE" "sanity-application-prefix" "passed"
-  log_success "All Application names start with: ${NAME_PREFIX}"
+  log_success "All Application names start with: ${EXPECTED_PREFIX}"
 fi
 
 finalize_junit "$JUNIT_FILE" "$TOTAL_TESTS" "$TOTAL_FAILURES" "$START_TIME"
