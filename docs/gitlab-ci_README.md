@@ -438,6 +438,34 @@ out/
 
 > خروجی kubeconform در همان `validation.log` ثبت می‌شود (و در صورت نیاز در log job هم قابل مشاهده است).
 
+---
+
+## قانون GitOps: عدم Hardcode کردن Namespace
+
+در مدل Multi-Repo + Multi-Tenant + App-of-Apps، namespace باید توسط مقصد ArgoCD تعیین شود. بنابراین در خروجی رندر شده، هیچ منبع namespaced نباید `metadata.namespace` داشته باشد.
+
+**رفتار چک:**
+
+* منابع namespaced → اگر `metadata.namespace` مقدار داشته باشد، pipeline fail می‌شود.
+* منابع cluster-scoped نادیده گرفته می‌شوند (لیست ثابت در `gitlab-ci-scripts/cluster_scoped_kinds.txt`).
+* Kindهای `Namespace`, `Application`, `AppProject` مستثنا هستند.
+* `kind: List` پشتیبانی می‌شود و هر item جداگانه بررسی می‌شود.
+
+**Opt-out برای موارد خاص (فقط همان آبجکت):**
+
+```yaml
+metadata:
+  annotations:
+    gitops.mahsan.net/allow-hardcoded-namespace: "true"
+```
+
+**نمونه خطا:**
+
+```
+❌ Hardcoded namespaces detected in rendered/app.yaml
+❌   component=app apiVersion=apps/v1 kind=Deployment name=api namespace=prod file=rendered/app.yaml doc=1
+```
+
 ### نمایش نتایج در GitLab
 
 #### در Merge Request:
