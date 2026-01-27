@@ -138,7 +138,7 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 
 ## Changelog
 
-### v1.0.1 (since v1.0.0)
+### v1.0.1 
 
 * Expanded the BATS unit test coverage for CI scripts, including change-detection, XML escaping, and application prefix validation tests.
 * Added a GitHub Actions workflow to run the BATS test suite.
