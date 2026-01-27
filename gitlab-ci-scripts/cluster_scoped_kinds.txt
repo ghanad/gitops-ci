@@ -1,0 +1,32 @@
+# Cluster-scoped Kubernetes kinds (static allowlist).
+# Each entry is a Kind name (case-sensitive).
+# Comments and blank lines are ignored.
+
+APIService
+CertificateSigningRequest
+ClusterIssuer
+ClusterPolicy
+ClusterRole
+ClusterRoleBinding
+ClusterTrustBundle
+CustomResourceDefinition
+CSIDriver
+CSINode
+IngressClass
+MutatingWebhookConfiguration
+Namespace
+Node
+PersistentVolume
+PodSecurityPolicy
+PriorityClass
+RuntimeClass
+SelfSubjectAccessReview
+SelfSubjectRulesReview
+StorageClass
+SubjectAccessReview
+TokenReview
+ValidatingAdmissionPolicy
+ValidatingAdmissionPolicyBinding
+ValidatingWebhookConfiguration
+VolumeAttachment
+VolumeSnapshotClass

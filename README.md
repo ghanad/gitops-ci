@@ -13,6 +13,7 @@
   - render کردن Helm Wrapper و Raw Manifests
   - schema validation (kubeconform با schemaهای لوکال برای airgap)
   - policy validation (Kyverno) به صورت CI-only
+  - جلوگیری از namespace hardcode شده در منابع namespaced
 - مقیاس‌پذیری برای N tenant بدون تغییر بنیادین در معماری
 
 ---
@@ -115,6 +116,35 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 
 * `rendered/` : خروجی نهایی رندر شده برای هر component
 * `out/` : گزارش‌ها، لاگ‌ها و JUnit ها برای دیباگ
+
+---
+
+## Gate: جلوگیری از namespace hardcode شده
+
+در معماری App-of-Apps و Multi-Repo/Multi-Tenant، namespace باید فقط توسط **ArgoCD Application destination** کنترل شود.
+بنابراین هر منبع namespaced در خروجی رندر شده **نباید** `metadata.namespace` داشته باشد.
+
+### رفتار Gate
+- برای تمام فایل‌های `rendered/<component>.yaml`، اگر منبع **namespaced** باشد و `metadata.namespace` مقدار داشته باشد → **Fail**
+- منابع cluster-scoped (مثل `Namespace`, `ClusterRole`, `CRD` و …) بررسی نمی‌شوند.
+- `Application` و `AppProject` (ArgoCD) مجاز هستند namespace داشته باشند.
+
+### Opt-out برای یک component
+در صورت نیاز و به صورت محدود، می‌توانید در مسیر component یک فایل زیر اضافه کنید:
+
+```yaml
+# components/<component>/.gate.yml
+allowHardcodedNamespace: true
+```
+
+> **نکته:** پیش‌فرض `false` است و این opt-out فقط برای موارد خاص توصیه می‌شود.
+
+### نمونه خروجی خطا
+
+```
+❌ Hardcoded namespace detected in payments:
+  - apps/v1/Deployment/api namespace=prod | file=rendered/payments.yaml | doc 2
+```
 
 ---
 
