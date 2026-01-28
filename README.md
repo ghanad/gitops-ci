@@ -140,6 +140,11 @@ Jobها برای دسترسی به اسکریپت‌ها و policyهای baselin
 
 ## Changelog
 
+### v1.0.2
+
+* Added an optional ArgoCD Application name prefix guard and wired it into the sanity stage of the GitOps gate pipeline template.
+* Removed the hardcoded namespace validation gate in favor of other policy checks and updated related docs/configuration.
+
 ### v1.0.1 
 
 * Expanded the BATS unit test coverage for CI scripts, including change-detection, XML escaping, and application prefix validation tests.
