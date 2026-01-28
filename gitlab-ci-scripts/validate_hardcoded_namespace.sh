@@ -20,6 +20,7 @@ check_required_tools yq find
 OUT_DIR="${OUT_DIR:-out}"
 RENDERED_DIR="${RENDERED_DIR:-rendered}"
 ANNOTATION_KEY="${HARDCODED_NAMESPACE_ANNOTATION:-gitops.mahsan.net/allow-hardcoded-namespace}"
+NAMESPACE_ALLOWLIST_RAW="${HARDCODED_NAMESPACE_ALLOWLIST:-}"
 CLUSTER_SCOPED_KINDS_FILE="${CLUSTER_SCOPED_KINDS_FILE:-${SCRIPT_DIR}/cluster_scoped_kinds.txt}"
 
 JUNIT_FILE="${OUT_DIR}/namespace-junit.xml"
@@ -44,6 +45,16 @@ while IFS= read -r kind; do
   CLUSTER_SCOPED_KINDS["$kind"]=1
 done < "$CLUSTER_SCOPED_KINDS_FILE"
 
+declare -A NAMESPACE_ALLOWLIST
+if [ -n "$NAMESPACE_ALLOWLIST_RAW" ]; then
+  IFS=',' read -r -a namespace_items <<< "$NAMESPACE_ALLOWLIST_RAW"
+  for namespace_item in "${namespace_items[@]}"; do
+    namespace_item="$(echo "$namespace_item" | xargs)"
+    [[ -z "$namespace_item" ]] && continue
+    NAMESPACE_ALLOWLIST["$namespace_item"]=1
+  done
+fi
+
 is_cluster_scoped() {
   local kind="$1"
   [[ -n "${CLUSTER_SCOPED_KINDS[$kind]:-}" ]]
@@ -57,6 +68,11 @@ is_exempt_kind() {
       ;;
   esac
   return 1
+}
+
+is_namespace_allowlisted() {
+  local namespace="$1"
+  [[ -n "${NAMESPACE_ALLOWLIST[$namespace]:-}" ]]
 }
 
 TARGET_PATH="${1:-$RENDERED_DIR}"
@@ -106,6 +122,10 @@ for manifest in "${MANIFEST_FILES[@]}"; do
       fi
 
       if [ -n "$allow_namespace" ] && [ "${allow_namespace,,}" = "true" ]; then
+        continue
+      fi
+
+      if [ -n "$namespace" ] && is_namespace_allowlisted "$namespace"; then
         continue
       fi
 

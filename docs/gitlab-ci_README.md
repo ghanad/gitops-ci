@@ -459,6 +459,14 @@ metadata:
     gitops.mahsan.net/allow-hardcoded-namespace: "true"
 ```
 
+**Allowlist سراسری namespaceها (برای کل pipeline):**
+
+اگر یک namespace باید همیشه مجاز باشد (مثلاً `kube-system` برای chartهای سیستمی)، می‌توانید allowlist را از طریق متغیر محیطی تنظیم کنید:
+
+```bash
+export HARDCODED_NAMESPACE_ALLOWLIST="kube-system,monitoring"
+```
+
 **نمونه خطا:**
 
 ```
