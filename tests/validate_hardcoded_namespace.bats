@@ -100,3 +100,27 @@ YAML
   run grep -c "hardcoded namespace" "$OUT_DIR/namespace-junit.xml"
   [ "$status" -eq 0 ]
 }
+
+@test "validate_hardcoded_namespace: passes for allowlisted namespaces" {
+  cat <<'YAML' > "$RENDERED_DIR/app.yaml"
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reflector
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reflector
+  namespace: kube-system
+YAML
+
+  export HARDCODED_NAMESPACE_ALLOWLIST="kube-system,monitoring"
+
+  run bash "$SCRIPT_TO_TEST"
+  [ "$status" -eq 0 ]
+  [ -f "$OUT_DIR/namespace-junit.xml" ]
+  run grep -c "tests=\"1\"" "$OUT_DIR/namespace-junit.xml"
+  [ "$status" -eq 0 ]
+}
