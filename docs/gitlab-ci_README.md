@@ -440,56 +440,6 @@ out/
 
 ---
 
-## قانون GitOps: عدم Hardcode کردن Namespace
-
-در مدل Multi-Repo + Multi-Tenant + App-of-Apps، namespace باید توسط مقصد ArgoCD تعیین شود. بنابراین در خروجی رندر شده، هیچ منبع namespaced نباید `metadata.namespace` داشته باشد.
-
-**رفتار چک:**
-
-* منابع namespaced → اگر `metadata.namespace` مقدار داشته باشد، pipeline fail می‌شود.
-* منابع cluster-scoped نادیده گرفته می‌شوند (لیست ثابت در `gitlab-ci-scripts/cluster_scoped_kinds.txt`).
-* Kindهای `Namespace`, `Application`, `AppProject` مستثنا هستند.
-* `kind: List` پشتیبانی می‌شود و هر item جداگانه بررسی می‌شود.
-
-**Opt-out برای موارد خاص (فقط همان آبجکت):**
-
-```yaml
-metadata:
-  annotations:
-    gitops.mahsan.net/allow-hardcoded-namespace: "true"
-```
-
-**Allowlist سراسری namespaceها (برای کل pipeline):**
-
-اگر یک namespace باید همیشه مجاز باشد (مثلاً `kube-system` برای chartهای سیستمی)، می‌توانید allowlist را از طریق متغیر محیطی تنظیم کنید:
-
-```bash
-export HARDCODED_NAMESPACE_ALLOWLIST="kube-system,monitoring"
-```
-
-**نمونه خطا:**
-
-```
-❌ Hardcoded namespaces detected in rendered/app.yaml
-❌   component=app apiVersion=apps/v1 kind=Deployment name=api namespace=prod file=rendered/app.yaml doc=1
-```
-
-### نمایش نتایج در GitLab
-
-#### در Merge Request:
-
-1. **Overview tab** → نمایش pipeline status
-2. **Pipelines tab** → لینک به job log
-3. **Tests tab** → نمایش گزارش JUnit
-
-#### در Pipeline:
-
-1. کلیک روی job `validate-components`
-2. مشاهده لاگ real-time
-3. دانلود artifacts از سمت راست
-
----
-
 ## عیبیابی
 
 ### خطاهای رایج و راهحلها
